@@ -1,0 +1,4 @@
+pyttsx3
+screen_brightness_control
+pystray
+Pillow
