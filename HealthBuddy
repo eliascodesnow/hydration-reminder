@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""
+HealthBuddy - a small Windows CLI that runs in the background and reminds you to:
+  1. Drink water every N minutes (default: 120 = 2 hours)
+  2. Take a screen break every M minutes (default: 50 minutes)
+  3. Warns you if your screen brightness is above a threshold (default: 70%)
+
+Usage:
+    python healthbuddy.py
+    python healthbuddy.py --water 120 --break 50 --brightness 70 --brightness-check 10
+
+Run it hidden/in the background with pythonw.exe instead of python.exe if you
+don't want a console window (see the SETUP notes at the bottom of this file).
+"""
+
+import argparse
+import threading
+import time
+from datetime import datetime
+
+try:
+    from win10toast import ToastNotifier
+    _toaster = ToastNotifier()
+    _HAVE_TOAST = True
+except ImportError:
+    _HAVE_TOAST = False
+
+try:
+    import screen_brightness_control as sbc
+    _HAVE_SBC = True
+except ImportError:
+    _HAVE_SBC = False
+
+
+def notify(title: str, message: str, duration: int = 8):
+    """Show a Windows toast notification, falling back to a console print."""
+    timestamp = datetime.now().strftime("%H:%M:%S")
+    print(f"[{timestamp}] {title}: {message}")
+    if _HAVE_TOAST:
+        try:
+            # threaded=True so it doesn't block the reminder loop
+            _toaster.show_toast(title, message, duration=duration, threaded=True)
+            return
+        except Exception as e:
+            print(f"  (toast failed, printed to console instead: {e})")
+
+
+def water_loop(interval_minutes: int, stop_event: threading.Event):
+    while not stop_event.is_set():
+        if stop_event.wait(interval_minutes * 60):
+            break
+        notify("Drink water 💧", "It's been a couple hours — grab a glass of water.")
+
+
+def break_loop(interval_minutes: int, stop_event: threading.Event):
+    while not stop_event.is_set():
+        if stop_event.wait(interval_minutes * 60):
+            break
+        notify(
+            "Screen break 🧘",
+            f"You've been at the screen for {interval_minutes} min — "
+            "stand up, stretch, and look at something 20ft away for 20 sec.",
+        )
+
+
+def brightness_loop(threshold: int, check_every_minutes: int, stop_event: threading.Event,
+                     auto_adjust: bool = False, target_brightness: int = None):
+    if not _HAVE_SBC:
+        print(
+            "screen_brightness_control not installed — brightness checks are OFF. "
+            "Install with: pip install screen-brightness-control"
+        )
+        return
+    target = target_brightness if target_brightness is not None else threshold
+    while not stop_event.is_set():
+        try:
+            levels = sbc.get_brightness()
+            current = levels[0] if levels else None
+        except Exception as e:
+            current = None
+            print(f"  (couldn't read brightness: {e})")
+        if current is not None and current > threshold:
+            if auto_adjust:
+                try:
+                    sbc.set_brightness(target)
+                    notify(
+                        "Brightness lowered ☀️",
+                        f"It was {current}% (above your {threshold}% limit) — "
+                        f"set it down to {target}% to ease eye strain.",
+                    )
+                except Exception as e:
+                    notify(
+                        "Brightness is high ☀️",
+                        f"Screen brightness is {current}% but I couldn't auto-adjust it ({e}).",
+                    )
+            else:
+                notify(
+                    "Brightness is high ☀️",
+                    f"Screen brightness is {current}% (above your {threshold}% limit) — "
+                    "consider lowering it to ease eye strain.",
+                )
+        if stop_event.wait(check_every_minutes * 60):
+            break
+
+
+def main():
+    parser = argparse.ArgumentParser(description="HealthBuddy: water, screen-break, and brightness reminders")
+    parser.add_argument("--water", type=int, default=120, help="Minutes between water reminders (default: 120)")
+    parser.add_argument("--break", dest="screen_break", type=int, default=50,
+                         help="Minutes between screen-break reminders (default: 50)")
+    parser.add_argument("--brightness", type=int, default=70,
+                         help="Brightness percent threshold to warn above (default: 70)")
+    parser.add_argument("--brightness-check", type=int, default=10,
+                         help="Minutes between brightness checks (default: 10)")
+    parser.add_argument("--auto-adjust", action="store_true", default=True,
+                         help="Automatically lower brightness when it exceeds the threshold (default: on). "
+                              "Use --no-auto-adjust to only get a warning instead.")
+    parser.add_argument("--no-auto-adjust", dest="auto_adjust", action="store_false")
+    parser.add_argument("--target-brightness", type=int, default=None,
+                         help="Brightness % to set when auto-adjusting (default: same as --brightness threshold)")
+    args = parser.parse_args()
+
+    target = args.target_brightness if args.target_brightness is not None else args.brightness
+
+    print("HealthBuddy is running. Press Ctrl+C to stop.")
+    print(f"  Water reminder every {args.water} min")
+    print(f"  Screen-break reminder every {args.screen_break} min")
+    if args.auto_adjust:
+        print(f"  Brightness auto-adjusted to {target}% whenever it exceeds {args.brightness}%, "
+              f"checked every {args.brightness_check} min")
+    else:
+        print(f"  Brightness warning above {args.brightness}%, checked every {args.brightness_check} min")
+
+    stop_event = threading.Event()
+    threads = [
+        threading.Thread(target=water_loop, args=(args.water, stop_event), daemon=True),
+        threading.Thread(target=break_loop, args=(args.screen_break, stop_event), daemon=True),
+        threading.Thread(
+            target=brightness_loop,
+            args=(args.brightness, args.brightness_check, stop_event, args.auto_adjust, target),
+            daemon=True,
+        ),
+    ]
+    for t in threads:
+        t.start()
+
+    try:
+        while True:
+            time.sleep(1)
+    except KeyboardInterrupt:
+        print("\nStopping HealthBuddy...")
+        stop_event.set()
+        for t in threads:
+            t.join(timeout=2)
+
+
+if __name__ == "__main__":
+    main()
+
+
+# ------------------------------------------------------------------------
+# SETUP NOTES (Windows)
+# ------------------------------------------------------------------------
+# 1. Install Python 3.10+ from python.org if you don't already have it
+#    (tick "Add python.exe to PATH" during install).
+#
+# 2. Open Command Prompt / PowerShell in the folder with this file and run:
+#       pip install win10toast screen-brightness-control
+#
+# 3. Run it:
+#       python healthbuddy.py
+#    or customize timing, e.g. water every 90 min, break every 45 min:
+#       python healthbuddy.py --water 90 --break 45
+#
+# 4. To run silently without a console window, use pythonw instead of python:
+#       pythonw healthbuddy.py
+#
+# 5. To have it start automatically at login (so you don't run it by hand):
+#    - Press Win+R, type: shell:startup, press Enter. This opens your Startup folder.
+#    - Right-click inside it -> New -> Shortcut.
+#    - For the location, enter (adjust the path to where you saved this file):
+#        pythonw.exe "C:\path\to\healthbuddy.py"
+#    - Name it "HealthBuddy" and finish. It'll now launch quietly every time
+#      you log in to Windows.
+# ------------------------------------------------------------------------
