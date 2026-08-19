@@ -7,6 +7,8 @@ A lightweight background app for Windows that, every 2 hours (configurable):
 - Auto-closes itself after 20 seconds (configurable) so it never lingers
 - Periodically checks the time of day and adjusts your screen brightness on a schedule
 
+> **Note:** This project is now part of **HealthBuddy**, a comprehensive wellness suite. See [HealthBuddy](https://github.com/eliascodesnow/health-buddy) for the latest development and integration with other health-focused features.
+
 ## One thing worth knowing up front
 
 This app is designed to be an ordinary, well-behaved Windows program: it shows up
