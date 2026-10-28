@@ -29,7 +29,8 @@ DEFAULTS = {
     "sound_volume": 0.6,          # 0.0 - 1.0
     "voice_enabled": True,        # speak the reminder aloud
     "voice_rate": 170,            # words per minute for TTS
-    "voice_name": "",             # optional: part of an installed voice name, e.g. "Zira"
+    "voice_random": True,         # use a different installed voice for each reminder
+    "voice_name": "",             # optional: pin one voice (part of its name, e.g. "Zira"); overrides voice_random
 
     # --- brightness (unchanged) --------------------------------------------------
     "brightness_auto": True,      # set False to disable brightness adjustment entirely

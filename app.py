@@ -126,7 +126,8 @@ class HydrationApp:
     def _speak(self, rem):
         if self.cfg.get("voice_enabled", True):
             rate = int(self.cfg.get("voice_rate", 170)) + random.randint(-8, 8)
-            speak(rem.speech, rate=rate, voice_name=self.cfg.get("voice_name", ""))
+            speak(rem.speech, rate=rate, voice_name=self.cfg.get("voice_name", ""),
+                  randomize=self.cfg.get("voice_random", True))
 
     def _on_drink(self):
         progress = self.stats.add_glass()

@@ -88,7 +88,9 @@ restart the app to change settings:
 | `animation_fps` | Animation frame rate | `30` |
 | `low_power_mode` | Lower 3D render quality on slow PCs (it also adapts automatically) | `false` |
 | `sound_enabled` / `sound_volume` | Pouring sound effect, volume 0-1 | `true` / `0.6` |
-| `voice_enabled` / `voice_rate` / `voice_name` | Spoken reminder, speed, optional voice (e.g. `"Zira"`) | `true` / `170` / `""` |
+| `voice_enabled` / `voice_rate` | Spoken reminder and its speed | `true` / `170` |
+| `voice_random` | A different installed voice for each reminder | `true` |
+| `voice_name` | Pin one voice instead (e.g. `"Zira"`); overrides `voice_random` | `""` |
 | `brightness_auto` | Enable/disable brightness adjustment | `true` |
 | `brightness_day` / `brightness_evening` / `brightness_night` | Target brightness % for each period | `100 / 60 / 30` |
 | `day_start` / `evening_start` / `night_start` | Times (24h `HH:MM`) each period begins | `07:00 / 19:00 / 23:00` |
